@@ -19,9 +19,7 @@ VICRegANNpt Variance-Invariance-Covariance Regularization artificial neural netw
 
 import torch as pt
 from torch import nn
-from VICRegANNpt_globalDefs import *
-
-device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+from ANNpt_globalDefs import *
 
 def calculatePropagationLossVICRegANN(A1, A2):
 
@@ -80,9 +78,9 @@ def calculateCovarianceLoss(covarianceMatrix):
 def zeroOnDiagonalMatrixCells(covarianceMatrix):
 	numberVariables = covarianceMatrix.shape[0]
 	diagonalMask = pt.eye(numberVariables).to(device)
-	diagonalMaskBool = pt_cast(diagonalMask, torch.bool)
+	diagonalMaskBool = pt_cast(diagonalMask, pt.bool)
 	diagonalMaskBool = pt.logical_not(diagonalMaskBool)
-	diagonalMask = pt_cast(diagonalMaskBool, torch.float)
+	diagonalMask = pt_cast(diagonalMaskBool, pt.float)
 	covarianceMatrix = pt.multiply(covarianceMatrix, diagonalMask)
 	return covarianceMatrix
 

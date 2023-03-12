@@ -18,7 +18,7 @@ VICRegANNpt Variance-Invariance-Covariance Regularization artificial neural netw
 """
 
 import torch as pt
-from VICRegANNpt_globalDefs import *
+from ANNpt_globalDefs import *
 import VICRegANNpt_VICRegANNmodel
 import ANNpt_data
 import random

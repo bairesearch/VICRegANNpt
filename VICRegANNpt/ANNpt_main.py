@@ -1,4 +1,4 @@
-"""VICRegANNpt_main.py
+"""ANNpt_main.py
 
 # Author:
 Richard Bruce Baxter - Copyright (c) 2023 Baxter AI (baxterai.com)
@@ -17,10 +17,10 @@ pip install torchmetrics
 
 # Usage:
 source activate pytorchsenv
-python VICRegANNpt_main.py
+python ANNpt_main.py
 
 # Description:
-VICRegANNpt main - learning algorithm experiment (LRE) artificial neural network
+ANNpt main - custom artificial neural network trained on tabular data
 
 """
 
@@ -28,22 +28,25 @@ import torch
 from tqdm.auto import tqdm
 from torch import optim
 
-from VICRegANNpt_globalDefs import *
+from ANNpt_globalDefs import *
+
 if(useAlgorithmVICRegANN):
-	import VICRegANNpt_VICRegANN
+	import VICRegANNpt_VICRegANN as ANNpt_algorithm
+elif(useAlgorithmAUANN):
+	import LREANNpt_AUANN as ANNpt_algorithm
+elif(useAlgorithmSMANN):
+	import LIANNpt_SMANN as ANNpt_algorithm
+	
 if(usePositiveWeights):
 	import ANNpt_linearSublayers
 import ANNpt_data
 
 #https://huggingface.co/docs/datasets/tabular_load
 
-device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-
 def main():
 	dataset = ANNpt_data.loadDataset()
 	if(stateTrainDataset):
-		if(useAlgorithmVICRegANN):
-			model = VICRegANNpt_VICRegANN.createModel(dataset['train'])	#dataset['test'] not possible as test does not contain all classes
+		model = ANNpt_algorithm.createModel(dataset['train'])	#dataset['test'] not possible as test does not contain all classes
 		processDataset(True, dataset['train'], model)
 	if(stateTestDataset):
 		model = loadModel()
@@ -60,10 +63,17 @@ def processDataset(trainOrTest, dataset, model):
 
 	if(trainOrTest):
 		if(trainLocal):
-			optim = [None]*model.config.numberOfLayers
-			for layerIndex in range(model.config.numberOfLayers):
-				optimLayer = torch.optim.Adam(model.parameters(), lr=learningRate)
-				optim[layerIndex] = optimLayer
+			if(trainIndividialSamples):
+				optim = [[None for layerIndex in range(model.config.numberOfLayers) ] for sampleIndex in range(batchSize)]
+				for sampleIndex in range(batchSize):
+					for layerIndex in range(model.config.numberOfLayers):
+						optimSampleLayer = torch.optim.Adam(model.parameters(), lr=learningRate)
+						optim[sampleIndex][layerIndex] = optimSampleLayer
+			else:
+				optim = [None]*model.config.numberOfLayers
+				for layerIndex in range(model.config.numberOfLayers):
+					optimLayer = torch.optim.Adam(model.parameters(), lr=learningRate)
+					optim[layerIndex] = optimLayer
 		else:
 			optim = torch.optim.Adam(model.parameters(), lr=learningRate)
 		model.to(device)
@@ -75,7 +85,8 @@ def processDataset(trainOrTest, dataset, model):
 		numberOfEpochs = 1
 		
 	for epoch in range(numberOfEpochs):
-		dataset1, dataset2 = VICRegANNpt_VICRegANN.generateVICRegANNpairedDatasets(dataset)
+		if(usePairedDataset):
+			dataset1, dataset2 = ANNpt_algorithm.generateVICRegANNpairedDatasets(dataset)
 		
 		if(trainGreedy):
 			maxLayer = model.config.numberOfLayers
@@ -93,10 +104,12 @@ def processDataset(trainOrTest, dataset, model):
 			else:
 				numberOfDataloaderIterations = 1
 			for dataLoaderIteration in range(numberOfDataloaderIterations):
-	
-				loader1 = ANNpt_data.createDataLoaderTabularPaired(dataset1, dataset2)	#required to reset dataloader and still support tqdm modification
-				loop1 = tqdm(loader1, leave=True)
-				for batchIndex, batch in enumerate(loop1):
+				if(usePairedDataset):
+					loader = ANNpt_data.createDataLoaderTabularPaired(dataset1, dataset2)	#required to reset dataloader and still support tqdm modification
+				else:
+					loader = ANNpt_data.createDataLoaderTabular(dataset)	#required to reset dataloader and still support tqdm modification
+				loop = tqdm(loader, leave=True)
+				for batchIndex, batch in enumerate(loop):
 
 					if(trainOrTest):
 						loss, accuracy = trainBatch(batchIndex, batch, model, optim, l)
@@ -106,8 +119,8 @@ def processDataset(trainOrTest, dataset, model):
 					if(printAccuracyRunningAverage):
 						(loss, accuracy) = (runningLoss, runningAccuracy) = (runningLoss/runningAverageBatches*(runningAverageBatches-1)+(loss/runningAverageBatches), runningAccuracy/runningAverageBatches*(runningAverageBatches-1)+(accuracy/runningAverageBatches))
 
-					loop1.set_description(f'Epoch {epoch}')
-					loop1.set_postfix(batchIndex=batchIndex, loss=loss, accuracy=accuracy)
+					loop.set_description(f'Epoch {epoch}')
+					loop.set_postfix(batchIndex=batchIndex, loss=loss, accuracy=accuracy)
 
 		saveModel(model)
 					

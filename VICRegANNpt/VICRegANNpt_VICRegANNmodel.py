@@ -19,12 +19,10 @@ VICRegANNpt Variance-Invariance-Covariance Regularization artificial neural netw
 
 import torch as pt
 from torch import nn
-from VICRegANNpt_globalDefs import *
+from ANNpt_globalDefs import *
 from torchmetrics.classification import Accuracy
 import ANNpt_linearSublayers
 import VICRegANNpt_VICRegANNloss
-
-device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
 	
 
 class VICRegANNconfig():
