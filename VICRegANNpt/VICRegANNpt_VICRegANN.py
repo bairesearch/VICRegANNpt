@@ -25,8 +25,8 @@ import random
 
 def createModel(dataset):
 	datasetSize = ANNpt_data.getDatasetSize(dataset, printSize=True)
-	numberOfFeatures = ANNpt_data.countNumberFeatures(dataset)
-	numberOfClasses, numberOfClassSamples = ANNpt_data.countNumberClasses(dataset)
+	numberOfFeatures = ANNpt_data.countNumberFeatures(dataset, printSize=True)
+	numberOfClasses, numberOfClassSamples = ANNpt_data.countNumberClasses(dataset, printSize=True)
 				
 	print("creating new model")
 	config = VICRegANNpt_VICRegANNmodel.VICRegANNconfig(
@@ -55,6 +55,8 @@ def generateVICRegANNpairedDatasets(dataset):
 	random.shuffle(shuffleIndices)
 	dataset1 = dataset1.select(shuffleIndices)
 	dataset2 = dataset2.select(shuffleIndices)
+	#print("dataset1 = ", dataset1[0:100])
+	#print("dataset2 = ", dataset2[0:100])
 	return dataset1, dataset2
 
 def orderDatasetByClassRobust(dataset, numberOfClasses):

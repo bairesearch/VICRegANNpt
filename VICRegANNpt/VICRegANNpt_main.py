@@ -49,10 +49,16 @@ def main():
 		model = loadModel()
 		processDataset(False, dataset['test'], model)
 
+def createOptimizer():
+	if(optimiserAdam):
+		optim = torch.optim.Adam(model.parameters(), lr=learningRate)
+	else:
+		optim = torch.optim.SGD(model.parameters(), lr=learningRate)
+	return optim
+	
 def processDataset(trainOrTest, dataset, model):
 
 	if(trainOrTest):
-		model.to(device)
 		if(trainLocal):
 			optim = [None]*model.config.numberOfLayers
 			for layerIndex in range(model.config.numberOfLayers):
@@ -60,10 +66,8 @@ def processDataset(trainOrTest, dataset, model):
 				optim[layerIndex] = optimLayer
 		else:
 			optim = torch.optim.Adam(model.parameters(), lr=learningRate)
-		if(not trainLocal):
-			model.train()
-		else:
-			model.eval()		
+		model.to(device)
+		model.train()	
 		numberOfEpochs = trainNumberOfEpochs
 	else:
 		model.to(device)
@@ -72,36 +76,45 @@ def processDataset(trainOrTest, dataset, model):
 		
 	for epoch in range(numberOfEpochs):
 		dataset1, dataset2 = VICRegANNpt_VICRegANN.generateVICRegANNpairedDatasets(dataset)
-
-		loader1 = ANNpt_data.createDataLoader(dataset1)	#required to reset dataloader and still support tqdm modification
-		loop1 = tqdm(loader1, leave=True)
-		loader2 = ANNpt_data.createDataLoader(dataset2)
-		loader2iter = iter(loader2)
-				
-		if(printAccuracyRunningAverage):
-			(runningLoss, runningAccuracy) = (0.0, 0.0)
 		
-		for batchIndex, batch1 in enumerate(loop1):
-			batch2 = next(loader2iter)
-			batch = VICRegANNpt_VICRegANN.generateVICRegANNpairedBatch(batch1, batch2)
-			
-			if(trainOrTest):
-				loss, accuracy = trainBatch(batchIndex, batch, model, optim)
-			else:
-				loss, accuracy = testBatch(batchIndex, batch, model)
+		if(trainGreedy):
+			maxLayer = model.config.numberOfLayers
+		else:
+			maxLayer = 1
+		for l in range(maxLayer):
+			if(trainGreedy):
+				print("trainGreedy: l = ", l)
 			
 			if(printAccuracyRunningAverage):
-				(loss, accuracy) = (runningLoss, runningAccuracy) = (runningLoss/runningAverageBatches*(runningAverageBatches-1)+(loss/runningAverageBatches), runningAccuracy/runningAverageBatches*(runningAverageBatches-1)+(accuracy/runningAverageBatches))
-				
-			loop1.set_description(f'Epoch {epoch}')
-			loop1.set_postfix(batchIndex=batchIndex, loss=loss, accuracy=accuracy)
+				(runningLoss, runningAccuracy) = (0.0, 0.0)
+
+			if(dataloaderRepeatLoop):
+				numberOfDataloaderIterations = dataloaderRepeatSize
+			else:
+				numberOfDataloaderIterations = 1
+			for dataLoaderIteration in range(numberOfDataloaderIterations):
+	
+				loader1 = ANNpt_data.createDataLoaderTabularPaired(dataset1, dataset2)	#required to reset dataloader and still support tqdm modification
+				loop1 = tqdm(loader1, leave=True)
+				for batchIndex, batch in enumerate(loop1):
+
+					if(trainOrTest):
+						loss, accuracy = trainBatch(batchIndex, batch, model, optim, l)
+					else:
+						loss, accuracy = testBatch(batchIndex, batch, model, l)
+
+					if(printAccuracyRunningAverage):
+						(loss, accuracy) = (runningLoss, runningAccuracy) = (runningLoss/runningAverageBatches*(runningAverageBatches-1)+(loss/runningAverageBatches), runningAccuracy/runningAverageBatches*(runningAverageBatches-1)+(accuracy/runningAverageBatches))
+
+					loop1.set_description(f'Epoch {epoch}')
+					loop1.set_postfix(batchIndex=batchIndex, loss=loss, accuracy=accuracy)
 
 		saveModel(model)
 					
-def trainBatch(batchIndex, batch, model, optim):
+def trainBatch(batchIndex, batch, model, optim, l=None):
 	if(not trainLocal):
 		optim.zero_grad()
-	loss, accuracy = propagate(True, batchIndex, batch, model, optim)
+	loss, accuracy = propagate(True, batchIndex, batch, model, optim, l)
 	if(not trainLocal):
 		loss.backward()
 		optim.step()
@@ -116,9 +129,9 @@ def trainBatch(batchIndex, batch, model, optim):
 			
 	return loss, accuracy
 			
-def testBatch(batchIndex, batch, model):
+def testBatch(batchIndex, batch, model, l=None):
 
-	loss, accuracy = propagate(False, batchIndex, batch, model)
+	loss, accuracy = propagate(False, batchIndex, batch, model, l)
 
 	loss = loss.detach().cpu().numpy()
 	
@@ -132,14 +145,16 @@ def loadModel():
 	model = torch.load(modelPathNameFull)
 	return model
 		
-def propagate(trainOrTest, batchIndex, batch, model, optim=None):
+def propagate(trainOrTest, batchIndex, batch, model, optim=None, l=None):
 	(x, y) = batch
 	y = y.long()
 	x = x.to(device)
 	y = y.to(device)
-	#print("x = ", x)
-	#print("y = ", y)
-	loss, accuracy = model(trainOrTest, x, y, optim)
+	if(debugDataNormalisation):
+		print("x = ", x)
+		print("y = ", y)
+		
+	loss, accuracy = model(trainOrTest, x, y, optim, l)
 	return loss, accuracy
 				
 if(__name__ == '__main__'):

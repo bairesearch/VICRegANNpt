@@ -37,15 +37,26 @@ def calculatePropagationLossVICRegANN(A1, A2):
 	covariance1matrix = calculateCovarianceMatrix(A1)
 	covariance2matrix = calculateCovarianceMatrix(A2)
 	covarianceLoss = calculateCovarianceLoss(covariance1matrix) + calculateCovarianceLoss(covariance2matrix)
-	
+
 	#loss
 	loss = lambdaHyperparameter*matchedClassPairSimilarityLoss + muHyperparameter*varianceLoss + nuHyperparameter*covarianceLoss
-	#print("loss = ", loss)
-	
+
+	if(debugVICRegLoss):
+		print("A1 = ", A1)
+		print("A2 = ", A2)	
+		print("batchVariance1 = ", batchVariance1)
+		print("varianceLoss = ", varianceLoss)	
+		print("matchedClassPairSimilarityLoss = ", matchedClassPairSimilarityLoss)
+		print("covariance1matrix = ", covariance1matrix)
+		print("covarianceLoss = ", covarianceLoss)
+		print("loss = ", loss)
+		ex
+		
 	return loss
 	
 def calculateVarianceBatch(A):
 	batchVariance = pt.sqrt(reduceVariance(A, dim=0) + 1e-04)
+	#print("batchVariance = ", batchVariance)
 	return batchVariance
 	
 def calculateSimilarityLoss(A1, A2):
@@ -76,7 +87,7 @@ def zeroOnDiagonalMatrixCells(covarianceMatrix):
 	return covarianceMatrix
 
 def reduceVariance(A, dim=0):
-	varCustom = False
+	varCustom = True
 	if(varCustom):
 		return varianceUnbiasedCustom(A, dim, keepdim=False)
 	else:

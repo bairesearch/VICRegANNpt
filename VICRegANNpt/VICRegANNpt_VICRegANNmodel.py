@@ -65,9 +65,9 @@ class VICRegANNmodel(nn.Module):
 			self.previousSampleStatesLayerList = [None]*config.numberOfLayers
 			self.previousSampleClass = None
 
-	def forward(self, trainOrTest, x, y, optim):	
+	def forward(self, trainOrTest, x, y, optim, l=None):	
 		if(trainLocal and trainOrTest and not debugOnlyTrainLastLayer):
-			loss, accuracy = self.forwardBatchVICReg(x, y, optim)
+			loss, accuracy = self.forwardBatchVICReg(x, y, optim, l)
 		else:
 			loss, accuracy = self.forwardBatchStandard(x, y)	#standard backpropagation
 			
@@ -87,41 +87,64 @@ class VICRegANNmodel(nn.Module):
 		accuracy = accuracy.detach().cpu().numpy()
 		return loss, accuracy
 		
-	def forwardBatchVICReg(self, x, y, optim):
+	def forwardBatchVICReg(self, x, y, optim, l=None):
+		if(trainGreedy):
+			maxLayer = l+1
+		else:
+			maxLayer = self.config.numberOfLayers
 		x1 = x[:, 0]
 		x2 = x[:, 1]
-		#lossAverage = 0.0
-		for layerIndex in range(self.config.numberOfLayers):
-			if(layerIndex == self.config.numberOfLayers-1):
-				loss, accuracy = self.forwardLastLayer(layerIndex, x1, y)	#only calculate loss/accuracy for first experience in matched class pair
+		accuracy = 0.0	#in case accuracy calculations are not possible
+		for layerIndex in range(maxLayer):
+			if(trainGreedy):
+				x1, x2, loss, accuracy = self.trainLayer(layerIndex, x1, x2, y, optim, (layerIndex == l))
 			else:
-				x1, x2, loss = self.trainLayerVICReg(layerIndex, x1, x2, optim)
-			#lossAverage = lossAverage + loss
-		#lossAverage = lossAverage/batchSize
+				x1, x2, loss, accuracy = self.trainLayer(layerIndex, x1, x2, y, optim, True)
 		return loss, accuracy
 
-	def trainLayerVICReg(self, layerIndex, x1, x2, optim):
+	def trainLayer(self, layerIndex, x1, x2, y, optim, train):
+
+		loss = None
+		accuracy = 0.0
+		if(train):
+			optim = optim[layerIndex]
+			optim.zero_grad()
+
+		if(layerIndex == self.config.numberOfLayers-1):
+			loss, accuracy = self.forwardLayerLast(layerIndex, x1, y)
+		else:
+			x1, x2, loss = self.forwardLayerVICReg(layerIndex, x1, x2)
+			
+		if(train):
+			loss.backward()
+			optim.step()
+
+		return x1, x2, loss, accuracy
+		
+	def forwardLayerVICReg(self, layerIndex, x1, x2):
 		x1 = x1.detach()
 		x2 = x2.detach()
-		
-		optim = optim[layerIndex]
-		optim.zero_grad()
 
-		x1 = self.propagatePairElementLayer(layerIndex, x1)
-		x2 = self.propagatePairElementLayer(layerIndex, x2)
-		loss = VICRegANNpt_VICRegANNloss.calculatePropagationLossVICRegANN(x1, x2)
+		x1, z1 = self.propagatePairElementLayer(layerIndex, x1)
+		x2, z2 = self.propagatePairElementLayer(layerIndex, x2)
+
+		if(debugParameterInitialisation):
+			print("z1 = ", z1)
+			print("z2 = ", z2)
+			EW = self.layersLinear[layerIndex].weight
+			print("EW = ", EW)
 			
-		loss.backward()
-		optim.step()
-
+		loss = VICRegANNpt_VICRegANNloss.calculatePropagationLossVICRegANN(x1, x2)
+		
 		return x1, x2, loss
 	
 	def propagatePairElementLayer(self, layerIndex, x):
-		x = ANNpt_linearSublayers.executeLinearLayer(self, layerIndex, x, self.layersLinear[layerIndex])
-		x = ANNpt_linearSublayers.executeActivationLayer(self, layerIndex, x, self.layersActivation[layerIndex])
-		return x
+		z = ANNpt_linearSublayers.executeLinearLayer(self, layerIndex, x, self.layersLinear[layerIndex])
+		a = ANNpt_linearSublayers.executeActivationLayer(self, layerIndex, z, self.layersActivation[layerIndex])
+		return a, z
 
-	def forwardLastLayer(self, layerIndex, x, y):
+	def forwardLayerLast(self, layerIndex, x, y):
+		x = x.detach()
 		x = ANNpt_linearSublayers.executeLinearLayer(self, layerIndex, x, self.layersLinear[layerIndex])
 		loss = self.lossFunction(x, y)
 		accuracy = self.accuracyFunction(x, y)
