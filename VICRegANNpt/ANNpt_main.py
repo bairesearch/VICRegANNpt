@@ -14,6 +14,7 @@ pip install datasets
 pip install torch
 pip install lovely-tensors
 pip install torchmetrics
+pip install torchvision	[required for OR]
 
 # Usage:
 source activate pytorchsenv
@@ -34,8 +35,14 @@ if(useAlgorithmVICRegANN):
 	import VICRegANNpt_VICRegANN as ANNpt_algorithm
 elif(useAlgorithmAUANN):
 	import LREANNpt_AUANN as ANNpt_algorithm
-elif(useAlgorithmSMANN):
-	import LIANNpt_SMANN as ANNpt_algorithm
+elif(useAlgorithmLIANN):
+	import LIANNpt_LIANN as ANNpt_algorithm
+elif(useAlgorithmLUANN):
+	import LUANNpt_LUANN as ANNpt_algorithm
+elif(useAlgorithmLUOR):
+	import LUANNpt_LUOR as ANNpt_algorithm
+elif(useAlgorithmSANIOR):
+	import LUANNpt_SANIOR as ANNpt_algorithm
 	
 if(usePositiveWeights):
 	import ANNpt_linearSublayers
@@ -83,6 +90,9 @@ def processDataset(trainOrTest, dataset, model):
 		model.to(device)
 		model.eval()
 		numberOfEpochs = 1
+	
+	if(useAlgorithmLUOR):
+		ANNpt_algorithm.preprocessLUANNpermutations(dataset, model)
 		
 	for epoch in range(numberOfEpochs):
 		if(usePairedDataset):
@@ -104,10 +114,13 @@ def processDataset(trainOrTest, dataset, model):
 			else:
 				numberOfDataloaderIterations = 1
 			for dataLoaderIteration in range(numberOfDataloaderIterations):
-				if(usePairedDataset):
-					loader = ANNpt_data.createDataLoaderTabularPaired(dataset1, dataset2)	#required to reset dataloader and still support tqdm modification
-				else:
-					loader = ANNpt_data.createDataLoaderTabular(dataset)	#required to reset dataloader and still support tqdm modification
+				if(useTabularDataset):
+					if(usePairedDataset):
+						loader = ANNpt_data.createDataLoaderTabularPaired(dataset1, dataset2)	#required to reset dataloader and still support tqdm modification
+					else:
+						loader = ANNpt_data.createDataLoaderTabular(dataset)	#required to reset dataloader and still support tqdm modification
+				elif(useImageDataset):
+					loader = ANNpt_data.createDataLoaderImage(dataset)	#required to reset dataloader and still support tqdm modification
 				loop = tqdm(loader, leave=True)
 				for batchIndex, batch in enumerate(loop):
 

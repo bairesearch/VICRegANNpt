@@ -24,78 +24,124 @@ from ANNpt_globalDefs import *
 class LinearSegregated(nn.Module):
 	def __init__(self, in_features, out_features, number_sublayers):
 		super().__init__()
-		self.segregatedLinear = nn.Conv1d(in_channels=in_features*number_sublayers, out_channels=out_features*number_sublayers, kernel_size=1, groups=number_sublayers)
+		if(useCNNlayers):
+			self.segregatedLinear = nn.Conv2d(in_channels=in_features*number_sublayers, out_channels=out_features*number_sublayers, kernel_size=CNNkernelSize, stride=CNNstride, padding=CNNpadding, groups=number_sublayers)
+		else:	
+			self.segregatedLinear = nn.Conv1d(in_channels=in_features*number_sublayers, out_channels=out_features*number_sublayers, kernel_size=1, groups=number_sublayers)
 		self.number_sublayers = number_sublayers
 		
 	def forward(self, x):
 		#x.shape = batch_size, number_sublayers, in_features
-		x = x.view(x.shape[0], x.shape[1]*x.shape[2], 1)
+		if(useCNNlayers):
+			x = x.view(x.shape[0], x.shape[1]*x.shape[2], x.shape[3], x.shape[4])
+		else:
+			x = x.view(x.shape[0], x.shape[1]*x.shape[2], 1)
 		x = self.segregatedLinear(x)
-		x = x.view(x.shape[0], self.number_sublayers, x.shape[1]//self.number_sublayers)
+		if(useCNNlayers):
+			x = x.view(x.shape[0], self.number_sublayers, x.shape[1]//self.number_sublayers, x.shape[2], x.shape[3])
+		else:
+			x = x.view(x.shape[0], self.number_sublayers, x.shape[1]//self.number_sublayers)
 		#x.shape = batch_size, number_sublayers, out_features
 		return x
 
-def generateLinearLayer(self, layerIndex, config):
-	if(layerIndex == 0):
+def generateLinearLayer(self, layerIndex, config, parallelStreams=False):
+	if(inputLayerInList and layerIndex == 0):
 		in_features = config.inputLayerSize
 	else:
-		if(useLinearSublayers):
-			in_features = config.hiddenLayerSize*config.linearSublayersNumber
-		else:
-			in_features = config.hiddenLayerSize
-	if(layerIndex == config.numberOfLayers-1):
+		in_features = config.hiddenLayerSize
+	if(outputLayerInList and layerIndex == config.numberOfLayers-1):
 		out_features = config.outputLayerSize
 	else:
 		out_features = config.hiddenLayerSize
-
+	linearSublayersNumber = config.linearSublayersNumber
+	return generateLinearLayer2(self, layerIndex, in_features, out_features, linearSublayersNumber, parallelStreams)
+		
+def generateLinearLayer2(self, layerIndex, in_features, out_features, linearSublayersNumber, parallelStreams=False):
 	if(getUseLinearSublayers(self, layerIndex)):
-		linear = LinearSegregated(in_features=in_features, out_features=out_features, number_sublayers=config.linearSublayersNumber)
+		linear = LinearSegregated(in_features=in_features, out_features=out_features, number_sublayers=linearSublayersNumber)
 	else:
-		linear = nn.Linear(in_features=in_features, out_features=out_features)
+		if(useCNNlayers):
+			linear = nn.Conv2d(in_channels=in_features, out_channels=out_features, kernel_size=CNNkernelSize, stride=CNNstride, padding=CNNpadding)
+		else:
+			if(parallelStreams):
+				in_features = in_features*linearSublayersNumber
+			linear = nn.Linear(in_features=in_features, out_features=out_features)
 
 	weightsSetLayer(self, layerIndex, linear)
 
 	return linear
 
-def generateActivationLayer(self, layerIndex, config):
-	if(usePositiveWeights):
-		if(getUseLinearSublayers(self, layerIndex)):
-			activation = nn.Softmax(dim=1)
+def generateActivationFunction():
+	if(activationFunctionType=="softmax"):
+		if(thresholdActivations):
+			activation = OffsetSoftmax(thresholdActivationsMin)
 		else:
 			activation = nn.Softmax(dim=1)
-	else:
-		if(getUseLinearSublayers(self, layerIndex)):
+	elif(activationFunctionType=="relu"):
+		if(thresholdActivations):
+			activation = OffsetReLU(thresholdActivationsMin)
+		else:
 			activation = nn.ReLU()
-		else:
-			activation = nn.ReLU()		
+	elif(activationFunctionType=="none"):
+		activation = None
 	return activation
 
-def executeLinearLayer(self, layerIndex, x, linear):
+def generateActivationLayer(self, layerIndex, config):
+	return generateActivationFunction()
+
+def executeLinearLayer(self, layerIndex, x, linear, parallelStreams=False):
 	weightsFixLayer(self, layerIndex, linear)	#otherwise need to constrain backprop weight update function to never set weights below 0
 	if(getUseLinearSublayers(self, layerIndex)):
 		#perform computation for each sublayer independently
-		x = x.unsqueeze(dim=1).repeat(1, self.config.linearSublayersNumber, 1)
+		if(not parallelStreams):
+			x = x.unsqueeze(dim=1).repeat(1, self.config.linearSublayersNumber, 1)
 		x = linear(x)
 	else:
+		if(parallelStreams):
+			x = pt.reshape(x, (x.shape[0], x.shape[1]*x.shape[2]))
+			#print("x.shape = ", x.shape)
 		x = linear(x)
 	return x
 
-def executeActivationLayer(self, layerIndex, x, softmax):
-	if(getUseLinearSublayers(self, layerIndex)):
-		xSublayerList = []
-		for sublayerIndex in range(self.config.linearSublayersNumber):
-			xSublayer = x[:, sublayerIndex]
-			xSublayer = softmax(xSublayer)	#or torch.nn.functional.softmax(xSublayer)
-			xSublayerList.append(xSublayer)
-		x = torch.concat(xSublayerList, dim=1)
+def executeActivationLayer(self, layerIndex, x, activationFunction, parallelStreams=False, executeActivationFunctionOverFeatures=True):
+	if(normaliseActivationSparsity):
+		x = nn.functional.layer_norm(x, x.shape[1:])   #normalized_shape does not include batchSize
+	if(getUseLinearSublayers(self, layerIndex) and not simulatedDendriticBranches):
+		if(activationFunctionType=="softmax"):
+			if(executeActivationFunctionOverFeatures):
+				numberOfSamples = x.shape[0]
+				numberOfSublayers = x.shape[1]
+				if(useCNNlayers):
+					x = pt.reshape(x, (x.shape[0]*x.shape[1], x.shape[2], x.shape[3], x.shape[4]))
+				else:
+					x = pt.reshape(x, (x.shape[0]*x.shape[1], x.shape[2]))
+			x = activationFunction(x)
+			if(executeActivationFunctionOverFeatures):
+				if(useCNNlayers):
+					x = pt.reshape(x, (numberOfSamples, numberOfSublayers, x.shape[1], x.shape[2], x.shape[3]))
+				else:
+					x = pt.reshape(x, (numberOfSamples, numberOfSublayers, x.shape[1]))
+		elif(activationFunctionType=="relu"):
+			x = activationFunction(x)
+		elif(activationFunctionType=="none"):
+			pass
+		if(not parallelStreams):
+			if(useCNNlayers):
+				x = pt.reshape(x, (x.shape[0], x.shape[1]*x.shape[2], x.shape[3], x.shape[4]))
+			else:
+				x = pt.reshape(x, (x.shape[0], x.shape[1]*x.shape[2]))
 	else:
-		x = softmax(x)
+		if(activationFunctionType!="none"):
+			x = activationFunction(x)
 	return x
 
 def getUseLinearSublayers(self, layerIndex):
 	result = False
 	if(useLinearSublayers):
-		if(layerIndex != self.config.numberOfLayers-1):	#final layer does not useLinearSublayers
+		if(outputLayerInList):
+			if(layerIndex != self.config.numberOfLayers-1):	#final layer does not useLinearSublayers
+				result = True
+		else:
 			result = True
 	return result
 
@@ -113,6 +159,7 @@ def weightsSetLayer(self, layerIndex, linear):
 			nn.init.constant_(linear.bias, 0)
 
 def weightsFixLayer(self, layerIndex, linear):
+	#if(not trainLastLayerOnly):
 	weightsSetPositiveLayer(self, layerIndex, linear)
 			
 def weightsSetPositiveLayer(self, layerIndex, linear):
@@ -120,15 +167,54 @@ def weightsSetPositiveLayer(self, layerIndex, linear):
 		if(not usePositiveWeightsClampModel):
 			if(getUseLinearSublayers(self, layerIndex)):
 				weights = linear.segregatedLinear.weight #only positive weights allowed
-				weights = torch.abs(weights)
-				linear.segregatedLinear.weight = torch.nn.Parameter(weights)
+				weights = pt.abs(weights)
+				linear.segregatedLinear.weight = pt.nn.Parameter(weights)
 			else:
 				weights = linear.weight #only positive weights allowed
-				weights = torch.abs(weights)
-				linear.weight = torch.nn.Parameter(weights)
+				weights = pt.abs(weights)
+				linear.weight = pt.nn.Parameter(weights)
+		if(debugUsePositiveWeightsVerify):
+			if(getUseLinearSublayers(self, layerIndex)):
+				weights = linear.segregatedLinear.weight
+				print("weights = ", weights)
+			else:
+				weights = linear.weight
+				print("weights = ", weights)		
 		
 def weightsSetPositiveModel(self):
 	if(usePositiveWeights):
 		if(usePositiveWeightsClampModel):
 			for p in self.parameters():
 				p.data.clamp_(0)
+
+class OffsetReLU(nn.Module):
+	def __init__(self, offset):
+		super(OffsetReLU, self).__init__()
+		self.offset = offset
+
+	def forward(self, x):
+		if(debugPrintActivationOutput):
+			print("OffsetReLU: x = ", x)
+		#print("self.offset = ", self.offset)
+		x = pt.max(pt.zeros_like(x), x - self.offset)
+		return x
+
+class OffsetSoftmax(nn.Module):
+	def __init__(self, offset):
+		super(OffsetSoftmax, self).__init__()
+		self.offset = offset
+		self.softmax = nn.Softmax(dim=1)
+
+	def forward(self, x):
+		if(debugPrintActivationOutput):
+			print("OffsetSoftmax: x = ", x)
+		#print("self.offset = ", self.offset)
+		x = self.softmax(x)
+		if(debugPrintActivationOutput):
+			print("OffsetSoftmax: x after softmax = ", x)
+		x = pt.max(pt.zeros_like(x), x - self.offset)
+		return x
+
+
+
+

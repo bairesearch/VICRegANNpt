@@ -7,10 +7,10 @@ Richard Bruce Baxter - Copyright (c) 2023 Baxter AI (baxterai.com)
 MIT License
 
 # Installation:
-see VICRegANNpt_main.py
+see ANNpt_main.py
 
 # Usage:
-see VICRegANNpt_main.py
+see ANNpt_main.py
 
 # Description:
 VICRegANNpt Variance-Invariance-Covariance Regularization artificial neural network (VICRegANN)

@@ -23,8 +23,17 @@ from datasets import load_dataset
 from ANNpt_globalDefs import *
 import numpy as np
 import random
+if(useImageDataset):
+	import torchvision
+	import torchvision.transforms as transforms
 
 def loadDataset():
+	if(useTabularDataset):
+		return loadDatasetTabular()
+	elif(useImageDataset):
+		return loadDatasetImage()
+		
+def loadDatasetTabular():
 	if(datasetLocalFile):
 		trainFileNameFull = dataPathName + '/' + trainFileName
 		testFileNameFull = dataPathName + '/' +  testFileName
@@ -270,3 +279,16 @@ class CustomRandomSampler(pt.utils.data.Sampler):
 					random.shuffle(order)
 				idx = 0
 			sampleIndex += 1
+
+def loadDatasetImage():
+	# Load the CIFAR-10 dataset and define preprocessing transformations
+	transform = transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
+	dataset = {}
+	dataset['train'] = torchvision.datasets.CIFAR10(root=dataPathName, train=True, download=True, transform=transform)
+	dataset['test'] = torchvision.datasets.CIFAR10(root=dataPathName, train=False, download=True, transform=transform)
+	return dataset
+
+def createDataLoaderImage(dataset):
+	loader = pt.utils.data.DataLoader(dataset, batch_size=batchSize, shuffle=True)
+	return loader
+	

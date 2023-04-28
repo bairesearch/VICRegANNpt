@@ -20,8 +20,10 @@ ANNpt globalDefs
 #algorithm selection
 useAlgorithmVICRegANN = True
 useAlgorithmAUANN = False
-useAlgorithmSMANN = False
-
+useAlgorithmLIANN = False
+useAlgorithmLUANN = False
+useAlgorithmLUOR = False
+useAlgorithmSANIOR = False
 
 #initialise (dependent vars);
 usePairedDataset = False
@@ -45,13 +47,57 @@ trainLocal = False
 trainGreedy = False
 trainIndividialSamples = False
 
+useLinearSublayers = False	#use multiple independent sublayers per linear layer	#optional
+if(useLinearSublayers):
+	linearSublayersNumber = 10
+else:
+	linearSublayersNumber = 1
+	
+debugSmallNetwork = False
+if(debugSmallNetwork):
+	batchSize = 2
+	numberOfLayers = 4
+	hiddenLayerSize = 5	
+	trainNumberOfEpochs = 1
+else:
+	batchSize = 64
+	numberOfLayers = 4
+	hiddenLayerSize = 10
+	trainNumberOfEpochs = 10
+
+#initialise (dependent vars);
+inputLayerInList = True
+outputLayerInList = True
+useCNNlayers = False
+thresholdActivations = False
+debugPrintActivationOutput = False
+simulatedDendriticBranches = False
+activationFunctionType = "relu"
+trainLastLayerOnly = False
+normaliseActivationSparsity = False
+debugUsePositiveWeightsVerify = False
+
+useTabularDataset = False
+useImageDataset = False
 if(useAlgorithmVICRegANN):
 	from VICRegANNpt_globalDefs import *
+	useTabularDataset = True
 elif(useAlgorithmAUANN):
 	from LREANNpt_globalDefs import *
-elif(useAlgorithmSMANN):
+	useTabularDataset = True
+elif(useAlgorithmLIANN):
 	from LIANNpt_globalDefs import *
-
+	useTabularDataset = True
+elif(useAlgorithmLUANN):
+	from LUANNpt_LUANN_globalDefs import *
+	useTabularDataset = True
+elif(useAlgorithmLUOR):
+	from LUANNpt_LUOR_globalDefs import *
+	useImageDataset = True
+elif(useAlgorithmSANIOR):
+	from LUANNpt_SANIOR_globalDefs import *
+	useImageDataset = True
+	
 import torch as pt
 
 useLovelyTensors = True
@@ -76,97 +122,86 @@ datasetReplaceNoneValues = False
 datasetNormaliseClassValues = False	#reformat class values from 0.. ; contiguous (will also convert string to int)
 datasetLocalFile = False
 
-	
-debugSmallNetwork = False
-if(debugSmallNetwork):
-	batchSize = 2
-	numberOfLayers = 4
-	hiddenLayerSize = 5	
-	trainNumberOfEpochs = 1	#default: 10	#number of epochs to train
-else:
-	batchSize = 64
-	numberOfLayers = 4
-	hiddenLayerSize = 100
-	trainNumberOfEpochs = 10	#default: 10	#number of epochs to train
-	
-#datasetName = 'tabular-benchmark'
-#datasetName = 'blog-feedback'
-#datasetName = 'titanic'
-#datasetName = 'red-wine'
-#datasetName = 'breast-cancer-wisconsin'
-#datasetName = 'diabetes-readmission'
-datasetName = 'new-thyroid'
-if(datasetName == 'tabular-benchmark'):
-	datasetNameFull = 'inria-soda/tabular-benchmark'
-	classFieldName = 'class'
-	trainFileName = 'clf_cat/albert.csv'
-	testFileName = 'clf_cat/albert.csv'
-	datasetNormalise = True
-elif(datasetName == 'blog-feedback'):
-	datasetNameFull = 'wwydmanski/blog-feedback'
-	classFieldName = 'target'
-	trainFileName = 'train.csv'
-	testFileName = 'test.csv'
-	datasetNormalise = True
-	datasetNormaliseClassValues = True	#int: not contiguous	#CHECKTHIS
-elif(datasetName == 'titanic'):
-	datasetNameFull = 'victor/titanic'
-	classFieldName = '2urvived'
-	trainFileName = 'train_and_test2.csv'	#train
-	testFileName = 'train_and_test2.csv'	#test
-	datasetReplaceNoneValues = True
-	datasetNormalise = True
-elif(datasetName == 'red-wine'):
-	datasetNameFull = 'lvwerra/red-wine'
-	classFieldName = 'quality'
-	trainFileName = 'winequality-red.csv'
-	testFileName = 'winequality-red.csv'
-	datasetNormaliseClassValues = True	#int: not start at 0
-	datasetNormalise = True
-elif(datasetName == 'breast-cancer-wisconsin'):
-	datasetNameFull = 'scikit-learn/breast-cancer-wisconsin'
-	classFieldName = 'diagnosis'
-	trainFileName = 'breast_cancer.csv'
-	testFileName = 'breast_cancer.csv'
-	datasetReplaceNoneValues = True
-	datasetNormaliseClassValues = True	#string: B/M	#requires conversion of target string B/M to int
-	datasetNormalise = True
-elif(datasetName == 'diabetes-readmission'):
-	datasetNameFull = 'imodels/diabetes-readmission'
-	classFieldName = 'readmitted'
-	trainFileName = 'train.csv'
-	testFileName = 'test.csv'	
-	datasetNormalise = True
-elif(datasetName == 'new-thyroid'):
-	classFieldName = 'class'
-	trainFileName = 'new-thyroid.csv'
-	testFileName = 'new-thyroid.csv'
-	datasetLocalFile = True	
-	datasetNormalise = True
-	datasetNormaliseClassValues = True
-	trainNumberOfEpochs = 100
-	batchSize = 100	#emulate VICRegANNtf
-	numberOfLayers = 4
-	hiddenLayerSize = 15	#5
-	datasetRepeat = True	#enable better sampling by dataloader with high batchSize (required if batchSize ~= datasetSize)
-	if(datasetRepeat):
-		datasetRepeatSize = 10
-	dataloaderRepeat = True
-#elif ...
 
 dataloaderRepeatSampler = False	#initialise (dependent var)
 dataloaderRepeatLoop = False	#initialise (dependent var)	#legacy (depreciate)
-if(dataloaderRepeat):
-	dataloaderRepeatSize = 10	#number of repetitions
-	dataloaderRepeatSampler = True
-	dataloaderRepeatLoop = False	#legacy (depreciate)
-	if(dataloaderRepeatSampler):
-		dataloaderRepeatSamplerCustom = False	#no tqdm visualisation
+if(useTabularDataset):
+	#datasetName = 'tabular-benchmark'
+	#datasetName = 'blog-feedback'
+	#datasetName = 'titanic'
+	#datasetName = 'red-wine'
+	#datasetName = 'breast-cancer-wisconsin'
+	#datasetName = 'diabetes-readmission'
+	datasetName = 'new-thyroid'
+	if(datasetName == 'tabular-benchmark'):
+		datasetNameFull = 'inria-soda/tabular-benchmark'
+		classFieldName = 'class'
+		trainFileName = 'clf_cat/albert.csv'
+		testFileName = 'clf_cat/albert.csv'
+		datasetNormalise = True
+	elif(datasetName == 'blog-feedback'):
+		datasetNameFull = 'wwydmanski/blog-feedback'
+		classFieldName = 'target'
+		trainFileName = 'train.csv'
+		testFileName = 'test.csv'
+		datasetNormalise = True
+		datasetNormaliseClassValues = True	#int: not contiguous	#CHECKTHIS
+	elif(datasetName == 'titanic'):
+		datasetNameFull = 'victor/titanic'
+		classFieldName = '2urvived'
+		trainFileName = 'train_and_test2.csv'	#train
+		testFileName = 'train_and_test2.csv'	#test
+		datasetReplaceNoneValues = True
+		datasetNormalise = True
+	elif(datasetName == 'red-wine'):
+		datasetNameFull = 'lvwerra/red-wine'
+		classFieldName = 'quality'
+		trainFileName = 'winequality-red.csv'
+		testFileName = 'winequality-red.csv'
+		datasetNormaliseClassValues = True	#int: not start at 0
+		datasetNormalise = True
+	elif(datasetName == 'breast-cancer-wisconsin'):
+		datasetNameFull = 'scikit-learn/breast-cancer-wisconsin'
+		classFieldName = 'diagnosis'
+		trainFileName = 'breast_cancer.csv'
+		testFileName = 'breast_cancer.csv'
+		datasetReplaceNoneValues = True
+		datasetNormaliseClassValues = True	#string: B/M	#requires conversion of target string B/M to int
+		datasetNormalise = True
+	elif(datasetName == 'diabetes-readmission'):
+		datasetNameFull = 'imodels/diabetes-readmission'
+		classFieldName = 'readmitted'
+		trainFileName = 'train.csv'
+		testFileName = 'test.csv'	
+		datasetNormalise = True
+	elif(datasetName == 'new-thyroid'):
+		classFieldName = 'class'
+		trainFileName = 'new-thyroid.csv'
+		testFileName = 'new-thyroid.csv'
+		datasetLocalFile = True	
+		datasetNormalise = True
+		datasetNormaliseClassValues = True
+		trainNumberOfEpochs = 100
+		numberOfLayers = 4
+		hiddenLayerSize = 15	#5
+		datasetRepeat = True	#enable better sampling by dataloader with high batchSize (required if batchSize ~= datasetSize)
+		if(datasetRepeat):
+			datasetRepeatSize = 10
+		dataloaderRepeat = True
+	#elif ...
+
+	if(dataloaderRepeat):
+		dataloaderRepeatSize = 10	#number of repetitions
+		dataloaderRepeatSampler = True
+		dataloaderRepeatLoop = False	#legacy (depreciate)
+		if(dataloaderRepeatSampler):
+			dataloaderRepeatSamplerCustom = False	#no tqdm visualisation
 		
-if(datasetNormalise):
-	datasetNormaliseMinMax = True	#normalise between 0.0 and 1.0
-	datasetNormaliseStdAvg = False	#normalise based on std and mean (~-1.0 to 1.0)
-	
+	if(datasetNormalise):
+		datasetNormaliseMinMax = True	#normalise between 0.0 and 1.0
+		datasetNormaliseStdAvg = False	#normalise based on std and mean (~-1.0 to 1.0)
+
+
 if(debugSmallBatchSize):
 	batchSize = 10
 
@@ -181,12 +216,6 @@ if(usePositiveWeights):
 
 learningRate = 0.005	#0.005	#0.0001
 
-useLinearSublayers = False	#use multiple independent sublayers per linear layer
-if(useLinearSublayers):
-	linearSublayersNumber = 10
-else:
-	linearSublayersNumber = 1
-	
 
 relativeFolderLocations = False
 userName = 'user'	#default: user
@@ -238,3 +267,6 @@ def printe(str):
 	exit()
 
 device = pt.device('cuda') if pt.cuda.is_available() else pt.device('cpu')
+
+
+	

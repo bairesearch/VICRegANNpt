@@ -18,6 +18,11 @@ VICRegANNpt globalDefs
 """
 
 
+#approximate VICRegANNtf parameters; n_h =  [5, 15, 9, 3]
+batchSize = 64	#100
+numberOfLayers = 4
+hiddenLayerSize = 10	
+
 usePairedDataset = True	#required
 trainLocal = True	#required	#local learning rule	#disable for debug (standard backprop algorithm)
 debugOnlyTrainLastLayer = False
@@ -40,3 +45,13 @@ workingDrive = '/large/source/ANNpython/VICRegANNpt/'
 dataDrive = workingDrive	#'/datasets/'
 
 modelName = 'modelVICRegANN'
+
+usePositiveWeights = True	#experimental
+if(usePositiveWeights):
+	usePositiveWeightsClampModel = True	#clamp entire model weights to be positive (rather than per layer); currently required
+	#activationFunctionType = "softmax"
+	activationFunctionType = "none"
+	normaliseActivationSparsity = True
+	debugUsePositiveWeightsVerify = False
+
+
