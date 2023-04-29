@@ -160,19 +160,19 @@ def weightsSetLayer(self, layerIndex, linear):
 
 def weightsFixLayer(self, layerIndex, linear):
 	#if(not trainLastLayerOnly):
-	weightsSetPositiveLayer(self, layerIndex, linear)
+	if(not usePositiveWeightsClampModel):
+		weightsSetPositiveLayer(self, layerIndex, linear)
 			
 def weightsSetPositiveLayer(self, layerIndex, linear):
 	if(usePositiveWeights):
-		if(not usePositiveWeightsClampModel):
-			if(getUseLinearSublayers(self, layerIndex)):
-				weights = linear.segregatedLinear.weight #only positive weights allowed
-				weights = pt.abs(weights)
-				linear.segregatedLinear.weight = pt.nn.Parameter(weights)
-			else:
-				weights = linear.weight #only positive weights allowed
-				weights = pt.abs(weights)
-				linear.weight = pt.nn.Parameter(weights)
+		if(getUseLinearSublayers(self, layerIndex)):
+			weights = linear.segregatedLinear.weight #only positive weights allowed
+			weights = pt.abs(weights)
+			linear.segregatedLinear.weight = pt.nn.Parameter(weights)
+		else:
+			weights = linear.weight #only positive weights allowed
+			weights = pt.abs(weights)
+			linear.weight = pt.nn.Parameter(weights)
 		if(debugUsePositiveWeightsVerify):
 			if(getUseLinearSublayers(self, layerIndex)):
 				weights = linear.segregatedLinear.weight
