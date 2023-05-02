@@ -69,7 +69,7 @@ def createOptimizer():
 def processDataset(trainOrTest, dataset, model):
 
 	if(trainOrTest):
-		if(trainLocal):
+		if(trainVicreg):
 			if(trainIndividialSamples):
 				optim = [[None for layerIndex in range(model.config.numberOfLayers) ] for sampleIndex in range(batchSize)]
 				for sampleIndex in range(batchSize):
@@ -138,10 +138,10 @@ def processDataset(trainOrTest, dataset, model):
 		saveModel(model)
 					
 def trainBatch(batchIndex, batch, model, optim, l=None):
-	if(not trainLocal):
+	if(not trainVicreg):
 		optim.zero_grad()
 	loss, accuracy = propagate(True, batchIndex, batch, model, optim, l)
-	if(not trainLocal):
+	if(not trainVicreg):
 		loss.backward()
 		optim.step()
 	

@@ -36,9 +36,12 @@ dataloaderMaintainBatchSize = True
 dataloaderRepeat = False
 
 optimiserAdam = True
+
+#initialise (dependent vars);
 useCustomWeightInitialisation = False
 useCustomBiasInitialisation = False
 usePositiveWeights = False
+usePositiveWeightsClampModel = False
 
 debugSmallBatchSize = False	#small batch size for debugging matrix output
 debugDataNormalisation = False

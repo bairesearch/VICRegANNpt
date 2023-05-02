@@ -17,6 +17,16 @@ VICRegANNpt globalDefs
 
 """
 
+trainVicreg = True
+vicregBiologicalMods = True
+
+if(trainVicreg):
+	if(vicregBiologicalMods):
+		trainLocal = True	#local learning rule	#required
+		if(trainLocal):
+			trainGreedy = False	 #optional	#train layers with all data consecutively	#default tf implementation
+	else:
+		trainLocal = False	#non-local (final hidden/backbone layer) vicreg training
 
 #approximate VICRegANNtf parameters; n_h =  [5, 15, 9, 3]
 batchSize = 64	#100
@@ -24,34 +34,31 @@ numberOfLayers = 4
 hiddenLayerSize = 10	
 
 usePairedDataset = True	#required
-trainLocal = True	#required	#local learning rule	#disable for debug (standard backprop algorithm)
-debugOnlyTrainLastLayer = False
 lambdaHyperparameter = 1.0 #invariance coefficient	#base condition > 1
 muHyperparameter = 1.0	#invariance coefficient	#base condition > 1
 nuHyperparameter = 1.0 #covariance loss coefficient	#set to 1
 optimiserAdam = False	#CHECKTHIS
-if(trainLocal):
-	trainGreedy = True	 #optional	#train layers with all data consecutively	#default tf implementation
 useCustomWeightInitialisation = True	#emulate VICRegANNtf
 useCustomBiasInitialisation = True	#emulate VICRegANNtf	#initialise biases to zero
+
+if(vicregBiologicalMods):
+	usePositiveWeights = True
+	if(usePositiveWeights):
+		usePositiveWeightsClampModel = True	#clamp entire model weights to be positive (rather than per layer); currently required
+		#activationFunctionType = "softmax"
+		activationFunctionType = "none"
+		normaliseActivationSparsity = True
+		debugUsePositiveWeightsVerify = False
 
 debugDataNormalisation = False
 debugParameterInitialisation = False
 debugVICRegLoss = False
 if(debugDataNormalisation or debugParameterInitialisation or debugVICRegLoss):
 	debugSmallBatchSize = True
+debugOnlyTrainLastLayer = False
 
 workingDrive = '/large/source/ANNpython/VICRegANNpt/'
 dataDrive = workingDrive	#'/datasets/'
 
 modelName = 'modelVICRegANN'
-
-usePositiveWeights = True	#experimental
-if(usePositiveWeights):
-	usePositiveWeightsClampModel = True	#clamp entire model weights to be positive (rather than per layer); currently required
-	#activationFunctionType = "softmax"
-	activationFunctionType = "none"
-	normaliseActivationSparsity = True
-	debugUsePositiveWeightsVerify = False
-
 

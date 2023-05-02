@@ -59,12 +59,8 @@ class VICRegANNmodel(nn.Module):
 		
 		ANNpt_linearSublayers.weightsSetPositiveModel(self)
 
-		if(trainLocal):
-			self.previousSampleStatesLayerList = [None]*config.numberOfLayers
-			self.previousSampleClass = None
-
 	def forward(self, trainOrTest, x, y, optim, l=None):	
-		if(trainLocal and trainOrTest and not debugOnlyTrainLastLayer):
+		if(trainVicreg and trainOrTest and not debugOnlyTrainLastLayer):
 			loss, accuracy = self.forwardBatchVICReg(x, y, optim, l)
 		else:
 			loss, accuracy = self.forwardBatchStandard(x, y)	#standard backpropagation
@@ -97,7 +93,14 @@ class VICRegANNmodel(nn.Module):
 			if(trainGreedy):
 				x1, x2, loss, accuracy = self.trainLayer(layerIndex, x1, x2, y, optim, (layerIndex == l))
 			else:
-				x1, x2, loss, accuracy = self.trainLayer(layerIndex, x1, x2, y, optim, True)
+				if(trainLocal):
+					x1, x2, loss, accuracy = self.trainLayer(layerIndex, x1, x2, y, optim, True)
+				else:
+					train = False
+					if((layerIndex == maxLayer-2) or (layerIndex == maxLayer-1)):
+						train = True	#second last (final hidden/backbone) layer or final output layer
+					x1, x2, loss, accuracy = self.trainLayer(layerIndex, x1, x2, y, optim, train)
+					#final hidden layer/backbone (will backpropagate vicreg loss)
 		return loss, accuracy
 
 	def trainLayer(self, layerIndex, x1, x2, y, optim, train):
@@ -105,8 +108,8 @@ class VICRegANNmodel(nn.Module):
 		loss = None
 		accuracy = 0.0
 		if(train):
-			optim = optim[layerIndex]
-			optim.zero_grad()
+			opt = optim[layerIndex]
+			opt.zero_grad()
 
 		if(layerIndex == self.config.numberOfLayers-1):
 			loss, accuracy = self.forwardLayerLast(layerIndex, x1, y)
@@ -115,13 +118,14 @@ class VICRegANNmodel(nn.Module):
 			
 		if(train):
 			loss.backward()
-			optim.step()
+			opt.step()
 
 		return x1, x2, loss, accuracy
 		
 	def forwardLayerVICReg(self, layerIndex, x1, x2):
-		x1 = x1.detach()
-		x2 = x2.detach()
+		if(trainLocal):
+			x1 = x1.detach()
+			x2 = x2.detach()
 
 		x1, z1 = self.propagatePairElementLayer(layerIndex, x1)
 		x2, z2 = self.propagatePairElementLayer(layerIndex, x2)
@@ -142,7 +146,7 @@ class VICRegANNmodel(nn.Module):
 		return a, z
 
 	def forwardLayerLast(self, layerIndex, x, y):
-		x = x.detach()
+		x = x.detach()	#trainVicreg trains last layer using backprop only
 		x = ANNpt_linearSublayers.executeLinearLayer(self, layerIndex, x, self.layersLinear[layerIndex])
 		loss = self.lossFunction(x, y)
 		accuracy = self.accuracyFunction(x, y)
