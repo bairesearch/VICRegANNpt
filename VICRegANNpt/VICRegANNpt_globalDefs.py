@@ -25,8 +25,10 @@ vicregSimilarityLossOnly = False	#experimental
 
 if(trainVicreg):
 	if(vicregBiologicalMods):
-		networkSiamese = False	#optional	#propagate through two paired networks
-		if(networkSiamese):
+		networkHemispherical = False	#optional	#propagate through two paired networks
+		if(networkHemispherical):
+			#networkHemisphericalStereoInput = True	#TODO	#use stereo input (vision, audio etc) - do not select matched/ablated input between network pairs
+			#networkHemisphericalAlignment = 0.1	#TODO	#degree of hemispherical alignment - fraction of neurons per layer to align (masked)
 			sparseLinearLayers = True	#add minor connectivity differences between paired network architectures
 			if(sparseLinearLayers):
 				sparseLinearLayersLevel = 0.8	#fraction of non-zeroed connections

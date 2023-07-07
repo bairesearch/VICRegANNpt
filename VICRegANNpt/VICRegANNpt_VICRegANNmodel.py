@@ -44,7 +44,7 @@ class VICRegANNmodel(nn.Module):
 		self.config = config
 
 		self.layersLinear, self.layersActivation = self.generateNetworkLayers(config)
-		if(networkSiamese):
+		if(networkHemispherical):
 			self.layersLinear2, self.layersActivation2 = self.generateNetworkLayers(config)
 
 		self.lossFunction = nn.CrossEntropyLoss()
@@ -148,7 +148,7 @@ class VICRegANNmodel(nn.Module):
 		return x1, x2, loss
 	
 	def propagatePairElementLayer(self, pairIndex, layerIndex, x):
-		if(networkSiamese and (pairIndex == 1)):
+		if(networkHemispherical and (pairIndex == 1)):
 			z = ANNpt_linearSublayers.executeLinearLayer(self, layerIndex, x, self.layersLinear2[layerIndex])
 			a = ANNpt_linearSublayers.executeActivationLayer(self, layerIndex, z, self.layersActivation2[layerIndex])
 		else:
