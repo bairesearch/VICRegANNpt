@@ -43,6 +43,16 @@ class VICRegANNmodel(nn.Module):
 		super().__init__()
 		self.config = config
 
+		self.layersLinear, self.layersActivation = self.generateNetworkLayers(config)
+		if(networkSiamese):
+			self.layersLinear2, self.layersActivation2 = self.generateNetworkLayers(config)
+
+		self.lossFunction = nn.CrossEntropyLoss()
+		self.accuracyFunction = Accuracy(task="multiclass", num_classes=self.config.outputLayerSize, top_k=1)
+		
+		ANNpt_linearSublayers.weightsSetPositiveModel(self)
+
+	def generateNetworkLayers(self, config):
 		layersLinearList = []
 		layersActivationList = []
 		for layerIndex in range(config.numberOfLayers):
@@ -51,14 +61,11 @@ class VICRegANNmodel(nn.Module):
 		for layerIndex in range(config.numberOfLayers):
 			activation = ANNpt_linearSublayers.generateActivationLayer(self, layerIndex, config)
 			layersActivationList.append(activation)
-		self.layersLinear = nn.ModuleList(layersLinearList)
-		self.layersActivation = nn.ModuleList(layersActivationList)
+		layersLinear = nn.ModuleList(layersLinearList)
+		layersActivation = nn.ModuleList(layersActivationList)
+		return layersLinear, layersActivation
 	
-		self.lossFunction = nn.CrossEntropyLoss()
-		self.accuracyFunction = Accuracy(task="multiclass", num_classes=self.config.outputLayerSize, top_k=1)
-		
-		ANNpt_linearSublayers.weightsSetPositiveModel(self)
-
+	
 	def forward(self, trainOrTest, x, y, optim, l=None):	
 		if(trainVicreg and trainOrTest and not debugOnlyTrainLastLayer):
 			loss, accuracy = self.forwardBatchVICReg(x, y, optim, l)
@@ -127,8 +134,8 @@ class VICRegANNmodel(nn.Module):
 			x1 = x1.detach()
 			x2 = x2.detach()
 
-		x1, z1 = self.propagatePairElementLayer(layerIndex, x1)
-		x2, z2 = self.propagatePairElementLayer(layerIndex, x2)
+		x1, z1 = self.propagatePairElementLayer(0, layerIndex, x1)
+		x2, z2 = self.propagatePairElementLayer(1, layerIndex, x2)
 
 		if(debugParameterInitialisation):
 			print("z1 = ", z1)
@@ -140,9 +147,13 @@ class VICRegANNmodel(nn.Module):
 		
 		return x1, x2, loss
 	
-	def propagatePairElementLayer(self, layerIndex, x):
-		z = ANNpt_linearSublayers.executeLinearLayer(self, layerIndex, x, self.layersLinear[layerIndex])
-		a = ANNpt_linearSublayers.executeActivationLayer(self, layerIndex, z, self.layersActivation[layerIndex])
+	def propagatePairElementLayer(self, pairIndex, layerIndex, x):
+		if(networkSiamese and (pairIndex == 1)):
+			z = ANNpt_linearSublayers.executeLinearLayer(self, layerIndex, x, self.layersLinear2[layerIndex])
+			a = ANNpt_linearSublayers.executeActivationLayer(self, layerIndex, z, self.layersActivation2[layerIndex])
+		else:
+			z = ANNpt_linearSublayers.executeLinearLayer(self, layerIndex, x, self.layersLinear[layerIndex])
+			a = ANNpt_linearSublayers.executeActivationLayer(self, layerIndex, z, self.layersActivation[layerIndex])
 		return a, z
 
 	def forwardLayerLast(self, layerIndex, x, y):

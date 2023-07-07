@@ -79,6 +79,7 @@ activationFunctionType = "relu"
 trainLastLayerOnly = False
 normaliseActivationSparsity = False
 debugUsePositiveWeightsVerify = False
+sparseLinearLayers = False
 
 useTabularDataset = False
 useImageDataset = False

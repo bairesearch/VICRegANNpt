@@ -37,7 +37,10 @@ def calculatePropagationLossVICRegANN(A1, A2):
 	covarianceLoss = calculateCovarianceLoss(covariance1matrix) + calculateCovarianceLoss(covariance2matrix)
 
 	#loss
-	loss = lambdaHyperparameter*matchedClassPairSimilarityLoss + muHyperparameter*varianceLoss + nuHyperparameter*covarianceLoss
+	if(vicregSimilarityLossOnly):
+		loss = lambdaHyperparameter*matchedClassPairSimilarityLoss
+	else:
+		loss = lambdaHyperparameter*matchedClassPairSimilarityLoss + muHyperparameter*varianceLoss + nuHyperparameter*covarianceLoss
 
 	if(debugVICRegLoss):
 		print("A1 = ", A1)

@@ -20,8 +20,17 @@ VICRegANNpt globalDefs
 trainVicreg = True
 vicregBiologicalMods = True
 
+#initialise (dependent vars);
+vicregSimilarityLossOnly = False	#experimental
+
 if(trainVicreg):
 	if(vicregBiologicalMods):
+		networkSiamese = False	#optional	#propagate through two paired networks
+		if(networkSiamese):
+			sparseLinearLayers = True	#add minor connectivity differences between paired network architectures
+			if(sparseLinearLayers):
+				sparseLinearLayersLevel = 0.8	#fraction of non-zeroed connections
+				vicregSimilarityLossOnly = False	#experimental; minor connectivity differences between paired network architectures might add regularisation
 		trainLocal = True	#local learning rule	#required
 		if(trainLocal):
 			trainGreedy = False	 #optional	#train layers with all data consecutively	#default tf implementation

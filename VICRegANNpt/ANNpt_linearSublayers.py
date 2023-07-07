@@ -20,7 +20,22 @@ ANNpt linear sublayers
 import torch as pt
 from torch import nn
 from ANNpt_globalDefs import *
+import torch.nn.functional as F
 
+class SparseLinear(nn.Linear):
+	def __init__(self, in_features, out_features, sparsity):
+		self.sparsity = sparsity
+		super().__init__(in_features, out_features)
+
+	def reset_parameters(self):
+		super().reset_parameters()
+		self.mask = pt.rand_like(self.weight) > self.sparsity
+		self.weight.data *= self.mask.float()
+
+	def forward(self, x):
+		self.weight.data *= self.mask.float().to(device)
+		return F.linear(x, self.weight, self.bias)
+		
 class LinearSegregated(nn.Module):
 	def __init__(self, in_features, out_features, number_sublayers):
 		super().__init__()
@@ -65,7 +80,10 @@ def generateLinearLayer2(self, layerIndex, in_features, out_features, linearSubl
 		else:
 			if(parallelStreams):
 				in_features = in_features*linearSublayersNumber
-			linear = nn.Linear(in_features=in_features, out_features=out_features)
+			if(sparseLinearLayers):
+				linear = SparseLinear(in_features=in_features, out_features=out_features, sparsity=sparseLinearLayersLevel)
+			else:
+				linear = nn.Linear(in_features=in_features, out_features=out_features)
 
 	weightsSetLayer(self, layerIndex, linear)
 
