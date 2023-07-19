@@ -23,23 +23,42 @@ from ANNpt_globalDefs import *
 
 def calculatePropagationLossVICRegANN(A1, A2):
 
-	#variance loss
-	batchVariance1 = calculateVarianceBatch(A1)
-	batchVariance2 = calculateVarianceBatch(A2)
-	varianceLoss = pt.mean(pt.nn.functional.relu(1.0 - batchVariance1)) + pt.mean(pt.nn.functional.relu(1.0 - batchVariance2))
+	if(trainMostAlignedNeurons):
+		#A1bool = pt.gt(A1, 0)
+		#A2bool = pt.gt(A2, 0)
+		#neuronsAligned = pt.eq(A1, A2)
+		AdotProduct = pt.multiply(A1, A2)
+		
+		if(trainMostAlignedNeuronsMethod == "softmax"):
+			AdotProductThresholded = pt.nn.functional.softmax(AdotProduct, dim=1)
+		elif(trainMostAlignedNeuronsMethod == "thresholded"):
+			AdotProductThresholded = pt.gt(AdotProduct, trainMostAlignedNeuronsThresholdMin).float()
+		elif(trainMostAlignedNeuronsMethod == "topk"):
+			topkRes = pt.topk(AdotProduct, trainMostAlignedNeuronsTopK)
+			AdotProductMask = pt.zeros(AdotProduct.shape).to(device)
+			AdotProductMask.scatter_(-1, topkRes.indices, topkRes.values)
+			AdotProductThresholded = AdotProductMask
+			#print("AdotProductThresholded = ", AdotProductThresholded)
 	
+		A1 = pt.multiply(A1, AdotProductThresholded)
+		A2 = pt.multiply(A2, AdotProductThresholded)
+		
 	#invariance loss
 	matchedClassPairSimilarityLoss = calculateSimilarityLoss(A1, A2)
-	
-	#covariance loss
-	covariance1matrix = calculateCovarianceMatrix(A1)
-	covariance2matrix = calculateCovarianceMatrix(A2)
-	covarianceLoss = calculateCovarianceLoss(covariance1matrix) + calculateCovarianceLoss(covariance2matrix)
 
-	#loss
 	if(vicregSimilarityLossOnly):
 		loss = lambdaHyperparameter*matchedClassPairSimilarityLoss
 	else:
+		#variance loss
+		batchVariance1 = calculateVarianceBatch(A1)
+		batchVariance2 = calculateVarianceBatch(A2)
+		varianceLoss = pt.mean(pt.nn.functional.relu(1.0 - batchVariance1)) + pt.mean(pt.nn.functional.relu(1.0 - batchVariance2))
+
+		#covariance loss
+		covariance1matrix = calculateCovarianceMatrix(A1)
+		covariance2matrix = calculateCovarianceMatrix(A2)
+		covarianceLoss = calculateCovarianceLoss(covariance1matrix) + calculateCovarianceLoss(covariance2matrix)
+
 		loss = lambdaHyperparameter*matchedClassPairSimilarityLoss + muHyperparameter*varianceLoss + nuHyperparameter*covarianceLoss
 
 	if(debugVICRegLoss):
@@ -51,7 +70,7 @@ def calculatePropagationLossVICRegANN(A1, A2):
 		print("covariance1matrix = ", covariance1matrix)
 		print("covarianceLoss = ", covarianceLoss)
 		print("loss = ", loss)
-		ex
+		exit()
 		
 	return loss
 	

@@ -22,17 +22,25 @@ vicregBiologicalMods = True
 
 #initialise (dependent vars);
 vicregSimilarityLossOnly = False	#experimental
+trainMostAlignedNeurons = False
 
 if(trainVicreg):
 	if(vicregBiologicalMods):
-		networkHemispherical = False	#optional	#propagate through two paired networks
+		networkHemispherical = True	#optional	#propagate through two paired networks
 		if(networkHemispherical):
 			#networkHemisphericalStereoInput = True	#TODO	#use stereo input (vision, audio etc) - do not select matched/ablated input between network pairs
 			#networkHemisphericalAlignment = 0.1	#TODO	#degree of hemispherical alignment - fraction of neurons per layer to align (masked)
+			vicregSimilarityLossOnly = True	#experimental; minor connectivity differences between paired network architectures might add regularisation
+			trainMostAlignedNeurons = True
+			if(trainMostAlignedNeurons):
+				#trainMostAlignedNeuronsMethod = "softmax"
+				#trainMostAlignedNeuronsMethod = "thresholded"
+				#trainMostAlignedNeuronsThresholdMin = 1.5
+				trainMostAlignedNeuronsMethod = "topk"	#incomplete
+				trainMostAlignedNeuronsTopK = 5	#number of neurons per layer to train (topk)
 			sparseLinearLayers = True	#add minor connectivity differences between paired network architectures
 			if(sparseLinearLayers):
 				sparseLinearLayersLevel = 0.8	#fraction of non-zeroed connections
-				vicregSimilarityLossOnly = False	#experimental; minor connectivity differences between paired network architectures might add regularisation
 		trainLocal = True	#local learning rule	#required
 		if(trainLocal):
 			trainGreedy = False	 #optional	#train layers with all data consecutively	#default tf implementation
@@ -42,7 +50,10 @@ if(trainVicreg):
 #approximate VICRegANNtf parameters; n_h =  [5, 15, 9, 3]
 batchSize = 64	#100
 numberOfLayers = 4
-hiddenLayerSize = 10	
+if(trainMostAlignedNeurons):
+	hiddenLayerSize = 1000
+else:
+	hiddenLayerSize = 10	
 
 usePairedDataset = True	#required
 lambdaHyperparameter = 1.0 #invariance coefficient	#base condition > 1

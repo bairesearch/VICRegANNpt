@@ -104,7 +104,7 @@ elif(useAlgorithmSANIOR):
 	
 import torch as pt
 
-useLovelyTensors = True
+useLovelyTensors = False
 if(useLovelyTensors):
 	import lovely_tensors as lt
 	lt.monkey_patch()
@@ -187,7 +187,7 @@ if(useTabularDataset):
 		datasetNormaliseClassValues = True
 		trainNumberOfEpochs = 100
 		numberOfLayers = 4
-		hiddenLayerSize = 15	#5
+		#hiddenLayerSize = 15	#5	#may be set by xANNpt_globalDefs
 		datasetRepeat = True	#enable better sampling by dataloader with high batchSize (required if batchSize ~= datasetSize)
 		if(datasetRepeat):
 			datasetRepeatSize = 10
