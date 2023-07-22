@@ -43,28 +43,33 @@ class VICRegANNmodel(nn.Module):
 		super().__init__()
 		self.config = config
 
-		self.layersLinear, self.layersActivation = self.generateNetworkLayers(config)
+		self.layersLinear, self.layersActivation = self.generateNetworkLayers(config, False)
+		if(trainAutoencoder):
+			self.layersLinearReverse, self.layersActivationReverse = self.generateNetworkLayers(config, True)
+			self.lossFunctionReverse = nn.MSELoss()
+
 		if(networkHemispherical):
-			self.layersLinear2, self.layersActivation2 = self.generateNetworkLayers(config)
+			self.layersLinear2, self.layersActivation2 = self.generateNetworkLayers(config, False)
+			if(trainAutoencoder):
+				self.layersLinearReverse2, self.layersActivationReverse2 = self.generateNetworkLayers(config, True)
 
 		self.lossFunction = nn.CrossEntropyLoss()
 		self.accuracyFunction = Accuracy(task="multiclass", num_classes=self.config.outputLayerSize, top_k=1)
 		
 		ANNpt_linearSublayers.weightsSetPositiveModel(self)
 
-	def generateNetworkLayers(self, config):
+	def generateNetworkLayers(self, config, reverse):
 		layersLinearList = []
 		layersActivationList = []
 		for layerIndex in range(config.numberOfLayers):
-			linear = ANNpt_linearSublayers.generateLinearLayer(self, layerIndex, config)
+			linear = ANNpt_linearSublayers.generateLinearLayer(self, layerIndex, config, reverse=reverse)
 			layersLinearList.append(linear)
 		for layerIndex in range(config.numberOfLayers):
-			activation = ANNpt_linearSublayers.generateActivationLayer(self, layerIndex, config)
+			activation = ANNpt_linearSublayers.generateActivationLayer(self, layerIndex, config, reverse=reverse)
 			layersActivationList.append(activation)
 		layersLinear = nn.ModuleList(layersLinearList)
 		layersActivation = nn.ModuleList(layersActivationList)
 		return layersLinear, layersActivation
-	
 	
 	def forward(self, trainOrTest, x, y, optim, l=None):	
 		if(trainVicreg and trainOrTest and not debugOnlyTrainLastLayer):
@@ -134,18 +139,26 @@ class VICRegANNmodel(nn.Module):
 			x1 = x1.detach()
 			x2 = x2.detach()
 
-		x1, z1 = self.propagatePairElementLayer(0, layerIndex, x1)
-		x2, z2 = self.propagatePairElementLayer(1, layerIndex, x2)
-
+		a1, z1 = self.propagatePairElementLayer(0, layerIndex, x1)
+		a2, z2 = self.propagatePairElementLayer(1, layerIndex, x2)
+		lossVICreg = VICRegANNpt_VICRegANNloss.calculatePropagationLossVICRegANN(a1, a2)
+	
+		if(trainAutoencoder):
+			a1AE, z1AE = self.propagatePairElementLayerReverse(0, layerIndex, a1)
+			a2AE, z2AE = self.propagatePairElementLayerReverse(1, layerIndex, a2)
+			lossAE1 = self.lossFunctionReverse(a1AE, x1)
+			lossAE2 = self.lossFunctionReverse(a2AE, x2)
+			loss = (lossVICreg + (lossAE1+lossAE2)/2)/2
+		else:
+			loss = lossVICreg
+		
 		if(debugParameterInitialisation):
 			print("z1 = ", z1)
 			print("z2 = ", z2)
 			EW = self.layersLinear[layerIndex].weight
 			print("EW = ", EW)
-			
-		loss = VICRegANNpt_VICRegANNloss.calculatePropagationLossVICRegANN(x1, x2)
 		
-		return x1, x2, loss
+		return a1, a2, loss
 	
 	def propagatePairElementLayer(self, pairIndex, layerIndex, x):
 		if(networkHemispherical and (pairIndex == 1)):
@@ -154,6 +167,15 @@ class VICRegANNmodel(nn.Module):
 		else:
 			z = ANNpt_linearSublayers.executeLinearLayer(self, layerIndex, x, self.layersLinear[layerIndex])
 			a = ANNpt_linearSublayers.executeActivationLayer(self, layerIndex, z, self.layersActivation[layerIndex])
+		return a, z
+		
+	def propagatePairElementLayerReverse(self, pairIndex, layerIndex, x):
+		if(networkHemispherical and (pairIndex == 1)):
+			z = ANNpt_linearSublayers.executeLinearLayer(self, layerIndex, x, self.layersLinearReverse2[layerIndex])
+			a = ANNpt_linearSublayers.executeActivationLayer(self, layerIndex, z, self.layersActivationReverse2[layerIndex])
+		else:
+			z = ANNpt_linearSublayers.executeLinearLayer(self, layerIndex, x, self.layersLinearReverse[layerIndex])
+			a = ANNpt_linearSublayers.executeActivationLayer(self, layerIndex, z, self.layersActivationReverse[layerIndex])
 		return a, z
 
 	def forwardLayerLast(self, layerIndex, x, y):

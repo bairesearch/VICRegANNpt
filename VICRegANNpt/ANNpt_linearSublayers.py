@@ -59,7 +59,7 @@ class LinearSegregated(nn.Module):
 		#x.shape = batch_size, number_sublayers, out_features
 		return x
 
-def generateLinearLayer(self, layerIndex, config, parallelStreams=False):
+def generateLinearLayer(self, layerIndex, config, parallelStreams=False, reverse=False):
 	if(inputLayerInList and layerIndex == 0):
 		in_features = config.inputLayerSize
 	else:
@@ -68,6 +68,10 @@ def generateLinearLayer(self, layerIndex, config, parallelStreams=False):
 		out_features = config.outputLayerSize
 	else:
 		out_features = config.hiddenLayerSize
+	if(reverse):
+		in_featuresTemp = in_features
+		in_features = out_features
+		out_features = in_featuresTemp
 	linearSublayersNumber = config.linearSublayersNumber
 	return generateLinearLayer2(self, layerIndex, in_features, out_features, linearSublayersNumber, parallelStreams)
 		
@@ -89,23 +93,26 @@ def generateLinearLayer2(self, layerIndex, in_features, out_features, linearSubl
 
 	return linear
 
-def generateActivationFunction():
-	if(activationFunctionType=="softmax"):
-		if(thresholdActivations):
-			activation = OffsetSoftmax(thresholdActivationsMin)
-		else:
-			activation = nn.Softmax(dim=1)
-	elif(activationFunctionType=="relu"):
-		if(thresholdActivations):
-			activation = OffsetReLU(thresholdActivationsMin)
-		else:
-			activation = nn.ReLU()
-	elif(activationFunctionType=="none"):
-		activation = None
+def generateActivationFunction(reverse=False):
+	if(reverse):
+		activation = nn.Sigmoid()	#CHECKTHIS
+	else:
+		if(activationFunctionType=="softmax"):
+			if(thresholdActivations):
+				activation = OffsetSoftmax(thresholdActivationsMin)
+			else:
+				activation = nn.Softmax(dim=1)
+		elif(activationFunctionType=="relu"):
+			if(thresholdActivations):
+				activation = OffsetReLU(thresholdActivationsMin)
+			else:
+				activation = nn.ReLU()
+		elif(activationFunctionType=="none"):
+			activation = None
 	return activation
 
-def generateActivationLayer(self, layerIndex, config):
-	return generateActivationFunction()
+def generateActivationLayer(self, layerIndex, config, reverse=False):
+	return generateActivationFunction(reverse)
 
 def executeLinearLayer(self, layerIndex, x, linear, parallelStreams=False):
 	weightsFixLayer(self, layerIndex, linear)	#otherwise need to constrain backprop weight update function to never set weights below 0

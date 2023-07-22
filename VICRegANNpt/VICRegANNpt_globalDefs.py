@@ -26,7 +26,13 @@ trainMostAlignedNeurons = False
 
 if(trainVicreg):
 	if(vicregBiologicalMods):
-		networkHemispherical = True	#optional	#propagate through two paired networks
+		trainLocal = True	#local learning rule	#required
+		if(trainLocal):
+			trainGreedy = False	 #optional	#train layers with all data consecutively	#default tf implementation
+		trainAutoencoder = False
+		if(trainAutoencoder):
+			vicregSimilarityLossOnly = False
+		networkHemispherical = False	#optional	#propagate through two paired networks
 		if(networkHemispherical):
 			#networkHemisphericalStereoInput = True	#TODO	#use stereo input (vision, audio etc) - do not select matched/ablated input between network pairs
 			#networkHemisphericalAlignment = 0.1	#TODO	#degree of hemispherical alignment - fraction of neurons per layer to align (masked)
@@ -40,10 +46,7 @@ if(trainVicreg):
 				trainMostAlignedNeuronsTopK = 5	#number of neurons per layer to train (topk)
 			sparseLinearLayers = True	#add minor connectivity differences between paired network architectures
 			if(sparseLinearLayers):
-				sparseLinearLayersLevel = 0.8	#fraction of non-zeroed connections
-		trainLocal = True	#local learning rule	#required
-		if(trainLocal):
-			trainGreedy = False	 #optional	#train layers with all data consecutively	#default tf implementation
+				sparseLinearLayersLevel = 0.8	#0.5	#fraction of non-zeroed connections
 	else:
 		trainLocal = False	#non-local (final hidden/backbone layer) vicreg training
 
