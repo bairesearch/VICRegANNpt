@@ -21,7 +21,8 @@ trainVicreg = True
 vicregBiologicalMods = True
 
 #initialise (dependent vars);
-vicregSimilarityLossOnly = False	#experimental
+partiallyAlignLayer = False
+vicregSimilarityLossOnly = False
 trainMostAlignedNeurons = False
 
 if(trainVicreg):
@@ -32,12 +33,16 @@ if(trainVicreg):
 		trainAutoencoder = False
 		if(trainAutoencoder):
 			vicregSimilarityLossOnly = False
-		networkHemispherical = False	#optional	#propagate through two paired networks
+		networkHemispherical = True	#optional	#propagate through two paired networks
 		if(networkHemispherical):
+			partiallyAlignLayer = True	#experimental; align a fraction of layer neurons
+			vicregSimilarityLossOnly = False	#experimental; minor connectivity differences between paired network architectures might add regularisation
+			trainMostAlignedNeurons = False	#experimental; only train already partially aligned neurons
+			if(partiallyAlignLayer):
+				partiallyAlignLayerFraction = 0.5	#fraction of layer neurons to align
+				partiallyAlignLayerIgnoreValue = 1.0	#set arbitrary activation value during training to ignore alignment
 			#networkHemisphericalStereoInput = True	#TODO	#use stereo input (vision, audio etc) - do not select matched/ablated input between network pairs
 			#networkHemisphericalAlignment = 0.1	#TODO	#degree of hemispherical alignment - fraction of neurons per layer to align (masked)
-			vicregSimilarityLossOnly = True	#experimental; minor connectivity differences between paired network architectures might add regularisation
-			trainMostAlignedNeurons = True
 			if(trainMostAlignedNeurons):
 				#trainMostAlignedNeuronsMethod = "softmax"
 				#trainMostAlignedNeuronsMethod = "thresholded"
@@ -53,10 +58,12 @@ if(trainVicreg):
 #approximate VICRegANNtf parameters; n_h =  [5, 15, 9, 3]
 batchSize = 64	#100
 numberOfLayers = 4
-if(trainMostAlignedNeurons):
+if(partiallyAlignLayer):
+	hiddenLayerSize = 100
+elif(trainMostAlignedNeurons):
 	hiddenLayerSize = 1000
 else:
-	hiddenLayerSize = 10	
+	hiddenLayerSize = 10
 
 usePairedDataset = True	#required
 lambdaHyperparameter = 1.0 #invariance coefficient	#base condition > 1
@@ -81,6 +88,8 @@ debugVICRegLoss = False
 if(debugDataNormalisation or debugParameterInitialisation or debugVICRegLoss):
 	debugSmallBatchSize = True
 debugOnlyTrainLastLayer = False
+if(debugOnlyTrainLastLayer):
+	hiddenLayerSize = 100	#temporarily emulate partiallyAlignLayer
 
 workingDrive = '/large/source/ANNpython/VICRegANNpt/'
 dataDrive = workingDrive	#'/datasets/'

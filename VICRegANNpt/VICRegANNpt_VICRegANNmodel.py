@@ -75,11 +75,19 @@ class VICRegANNmodel(nn.Module):
 		if(trainVicreg and trainOrTest and not debugOnlyTrainLastLayer):
 			loss, accuracy = self.forwardBatchVICReg(x, y, optim, l)
 		else:
+			if(trainVicreg and trainOrTest and debugOnlyTrainLastLayer):
+				layerIndexLast = self.config.numberOfLayers-1
+				opt = optim[layerIndexLast]
+				opt.zero_grad()
 			loss, accuracy = self.forwardBatchStandard(x, y)	#standard backpropagation
-			
+			if(trainVicreg and trainOrTest and debugOnlyTrainLastLayer):
+				loss.backward()
+				opt.step()
+				
 		return loss, accuracy
 
 	def forwardBatchStandard(self, x, y):
+
 		#print("forwardBatchStandard")
 		x = x[:, 0]	#only optimise final layer weights for first experience in matched class pair
 		for layerIndex in range(self.config.numberOfLayers):
@@ -91,6 +99,7 @@ class VICRegANNmodel(nn.Module):
 		loss = self.lossFunction(x, y)
 		accuracy = self.accuracyFunction(x, y)
 		accuracy = accuracy.detach().cpu().numpy()
+		
 		return loss, accuracy
 		
 	def forwardBatchVICReg(self, x, y, optim, l=None):

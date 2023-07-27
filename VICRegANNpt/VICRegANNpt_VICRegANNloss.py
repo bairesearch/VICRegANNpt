@@ -23,6 +23,13 @@ from ANNpt_globalDefs import *
 
 def calculatePropagationLossVICRegANN(A1, A2):
 
+	if(partiallyAlignLayer):
+		layerSize = A1.shape[1]
+		mask = pt.range(0, layerSize*partiallyAlignLayerFraction, dtype=pt.int64).to(device)
+		A1 = pt.index_fill(A1, dim=1, index=mask, value=partiallyAlignLayerIgnoreValue)
+		A2 = pt.index_fill(A2, dim=1, index=mask, value=partiallyAlignLayerIgnoreValue)
+		#print("A1 = ", A1)
+		
 	if(trainMostAlignedNeurons):
 		#A1bool = pt.gt(A1, 0)
 		#A2bool = pt.gt(A2, 0)
